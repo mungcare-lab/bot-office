@@ -13,13 +13,6 @@
   - 방장이 오프라인일 때도 이어가려면 설정에서 Supabase(URL + Anon Key, SQL 1회 실행)를 연결.
 - **저장**: 방마다 멤버·AI·대화 기록이 브라우저 localStorage에 독립 저장됩니다.
 
-## 개발
+## 업데이트
 
-```bash
-npm install
-npm run dev      # http://localhost:5173
-npm run build    # dist/
-node qa/run.mjs  # Playwright QA + 스크린샷 (qa/)
-```
-
-Vite + React + TypeScript. 빌드 산출물은 상대 경로(`base: './'`)라 GitHub Pages 하위 경로에서 그대로 동작합니다.
+소스는 코코 작업 공간의 `work/bot-office/`에 있습니다. `npm run build` 후 산출물(`dist/`)을 이 저장소 루트로 올리면 Pages에 반영됩니다.
