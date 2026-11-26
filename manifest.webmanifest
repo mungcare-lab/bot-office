@@ -1,18 +1,43 @@
 {
+  "id": "/bot-office/",
   "name": "AI OFFICE — 나와 AI 직원의 사무실",
   "short_name": "AI OFFICE",
   "description": "프로젝트 방마다 AI 직원 4명과 함께 대화하고 업무를 나누는 개인 AI 업무 시스템",
-  "lang": "ko",
+  "lang": "ko-KR",
   "dir": "ltr",
-  "start_url": "./",
-  "scope": "./",
+  "start_url": "/bot-office/",
+  "scope": "/bot-office/",
   "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
   "orientation": "portrait",
   "background_color": "#FEE500",
   "theme_color": "#FEE500",
+  "categories": ["productivity", "business"],
+  "prefer_related_applications": false,
   "icons": [
-    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
-    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    {
+      "src": "/bot-office/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/bot-office/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/bot-office/icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/bot-office/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
+    }
   ]
 }
