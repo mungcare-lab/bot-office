@@ -57,3 +57,9 @@
 - 키 등록(운영자, 터미널에서만):
   `curl -X POST "<SUPABASE_URL>/functions/v1/ai-chat" -H "apikey: <ANON>" -H "Authorization: Bearer <ANON>" -H "x-admin-token: <ADMIN_TOKEN>" -H "Content-Type: application/json" -d '{"action":"store_key","provider":"gemini","key":"<KEY>"}'`
   (등록 후에도 예산이 0원이면 호출은 차단된다.)
+
+## 2026-11-26 수정 (버그 3건 · 가져오기 안내)
+- **멘션 오인 수정** — `@AI`/`@all`/`@전체`/`@모두` 전체 호출은 뒤에 영문·숫자·밑줄이 이어지지 않는 **정확 일치**일 때만 인정한다. `@ai_use_1min` 같은 아이디가 전체 호출로 매칭되지 않는다. AI 핸들도 `@Pickles`처럼 뒤에 글자가 붙은 다른 아이디를 호출로 보지 않는다.
+- **업무 계정 발급 직후 목록 즉시 반영** — 발급 성공 응답의 계정을 목록 state에 바로 넣고(방금 발급 표시), 서버 목록을 재조회(최대 3회)해 합친다. 조회가 늦거나 실패해도 "아직 없습니다"로 남지 않으며, [🔄 목록 새로고침] 버튼을 추가했다.
+- **AI 직원 @Pickle 과 피클 업무 계정 구분** — AI 직원 Pickle 메시지에는 `AI 직원 · API 미연결` 배지, 피클 업무 계정(pickle_worker) 메시지에는 `🥒 피클 업무 계정` 배지를 붙였다. AI 팀 시트는 `AI 직원`과 `사람 · 피클 업무 계정`을 나눠 보여 주고, 방 헤더에도 업무 계정 수를 표시한다.
+- **기억 → 가져오기 안내** — 탭 상단에 ChatGPT·Claude의 맞춤 지침·메모리·프로젝트 지침을 복사하는 순서와 **원클릭 복사 프롬프트(2종)**, 민감정보 제외 안내를 접이식 카드로 넣었다(`docs/IMPORT_TEMPLATE.md` 기준).
