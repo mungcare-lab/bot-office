@@ -1,40 +1,59 @@
 # AI OFFICE (봇오피스)
 
-나(CEO)와 AI 직원 4명이 **프로젝트 방**에서 함께 일하는 개인용 AI 업무 시스템.
+나(CEO)와 AI 직원 4명이 **프로젝트 방**에서 함께 일하는 **1인 전용** AI 업무 시스템.
 
 - **주소**: https://mungcare-lab.github.io/bot-office/
 - **데이터베이스**: Supabase (Free) · 프로젝트 `ai-office` · 리전 서울(ap-northeast-2)
-- **로그인**: 이메일 + 비밀번호 / 이메일 로그인 링크(매직 링크)
+- **로그인**: 이메일 + 비밀번호 / 이메일 로그인 링크(매직 링크) · **관리자 1명 전용**
 
-## 지금 되는 것 (V1.1 · 1~4단계)
-- **계정 인증** — Supabase Auth 이메일 로그인·가입. 세션은 브라우저에 유지된다.
-- **프로젝트 방 6개 자동 생성** — AI OFFICE 본사 · Replay Me · 사운드오브클래식 · CROWN OF ASH · PAW PICK · 신규 사업 개발
-- **AI 직원 5명 자동 배치** — CEO(나) · ChatGPT · Claude · Pickle · Gemini (방마다 최대 10명까지 확장 가능)
-- **실시간 저장** — 메시지는 Supabase Postgres에 저장되고 새로고침·다른 기기에서도 그대로 보인다(postgres_changes 구독).
-- **@멘션 · @전체 호출** — 입력창에서 `@`를 누르면 AI 선택 목록이 뜬다.
-- **업무 요청 모드** — 📋 버튼으로 업무 요청(task)으로 보낼 수 있고 진행 상태(요청됨/진행 중/검수 대기/완료/보류)를 표시한다.
-- **파일·이미지 첨부** — 비공개 Storage 버킷(`office-files`)에 올리고 서명 URL로 본다.
-- **모바일 UI / 다크 모드 / PWA** — 390px 기준 카카오톡 스타일, 홈 화면 추가 지원(`manifest.webmanifest`, `sw.js`).
-- **고전 봇오피스 유지** — 주소 뒤에 `#local`(또는 기존 `?room=` 초대 링크)로 열면 이전 로컬/P2P 채팅 화면이 그대로 동작한다.
+## 지금 되는 것 (V2.0 · 1~8단계)
 
-### 4단계 · 공유 기억 시스템 (V1.1에서 추가)
-- 채팅방 상단 **🧠 기억 N** 버튼 → 프로젝트 전용 기억 시트.
-- **기억 10분류**: 사용자 업무 선호도 · 프로젝트 목표 · 확정된 작업지시서 · AI별 담당 업무 · 주요 의사결정 · 진행 중인 업무 · 완료된 업무 · 수정·변경 이력 · 프로젝트 핵심 기억 · 대화 요약.
-- **직접 열람·등록·수정·삭제** — 분류 칩 필터, 기억 검색, 📌 핵심 고정. 프로젝트마다 완전히 분리된다(RLS로 본인 프로젝트만 접근).
-- **대화 내역 검색** — 키워드로 방의 대화를 찾고, 누르면 그 메시지로 이동해 강조 표시.
-- **JSON 백업·복구** — 방의 기억+대화를 한 파일로 내보내고, 같은 파일로 복구한다(기존 내용 유지, 복원된 대화에는 “복원됨” 표시).
-- **AI 컨텍스트 선별 규칙** — AI 호출 시 핵심 기억(핀 고정 우선) 최대 12건 + 최근 대화 14개만 전달한다. 전체 대화는 보내지 않는다. 기억 시트의 “AI에게 전달될 컨텍스트 미리보기”에서 확인할 수 있다.
+### 계정 · 접근
+- **단일 관리자 잠금** — 관리자 계정은 1개만 존재한다. 관리자가 한 명이라도 생기면 **외부 신규 가입은 DB 트리거에서 차단**되고, 로그인 화면에도 회원가입 탭이 없다. (최초 1회, 관리자가 0명일 때만 “최초 관리자 만들기”가 열린다.)
+- **자동 로그인 유지** — 세션은 브라우저에 저장되고 토큰이 자동 갱신되어 새로고침·앱 재실행 후에도 로그인 상태가 유지된다.
+- **피클 업무 계정(`pickle_worker`)** — 관리자가 [🔌 AI 연결 → 업무 계정]에서 발급한다. 권한은 **업무 확인 · 메시지 작성 · 피클 담당 업무의 진행률/결과 갱신**뿐이며, 예산·AI 연결/키·기억 삭제·프로젝트 생성·업무 승인/반려·긴급 정지·백업 복구는 RLS와 RPC 양쪽에서 막힌다.
+- **AI 직원 무가입** — ChatGPT·Claude·Gemini·Pickle은 Auth 계정 없이 `ai_agents` 행 + 서버 연결로만 동작한다.
 
-## 아직 안 되는 것 (의도적으로 비워 둔 부분)
-- **AI의 실제 답변** — ChatGPT·Claude·Pickle·Gemini는 API가 연결되지 않았다. 호출하면 “API 미연결(수동 대기)”로만 표시하고, **AI가 답한 것처럼 꾸민 메시지는 만들지 않는다.** (DB RLS가 `author_kind='ai'` 메시지의 클라이언트 생성을 차단한다.)
-- **Gemini 무료 API 연동(5단계)** — 서버 게이트웨이 코드(`supabase/functions/ai-chat/index.ts`)는 설계 산출물로만 있고 **배포하지 않았다**(사용자 결정으로 이번 범위에서 제외). 배포 전까지 어떤 AI도 답하지 않는다.
-- ChatGPT·Claude 선택 연동(6단계), 자동 업무 분배·검수(7단계).
+### 프로젝트 방 · 대화 (1~3단계 유지)
+- 프로젝트 방 6개(AI OFFICE 본사 · Replay Me · 사운드오브클래식 · CROWN OF ASH · PAW PICK · 신규 사업 개발), 방마다 AI 5명(CEO 포함).
+- 실시간 저장(postgres_changes), `@멘션`·`@전체` 호출, 업무 요청 모드, 파일·이미지 첨부(비공개 버킷 + 서명 URL), PWA·다크 모드, `#local` 고전 모드.
+
+### 4단계 · 공유 기억 (유지 + 보완)
+- 기억 **10분류** · 분류 칩 · 검색 · 📌 핵심 고정 · 대화 검색 → 해당 메시지 이동 · JSON 백업/복구(“복원됨” 표시).
+- **중요도 1~5(P1~P5)** · **AI별 개인 업무 지침 vs 공통 기억 분리** · **변경 이력 자동 기록** · **오래된 대화 요약 저장**(규칙 기반 추출, AI 호출 없음·무료) · **중복·충돌 감지**(제목 유사도 + 같은 제목 다른 내용).
+- **관련 기억 자동 선별 미리보기** — 고정 최근 N개가 아니라 ① 우선순위 ② 핵심 고정 ③ 확정 지시 ④ AI 개인 지침 ⑤ 현재 입력 키워드 ⑥ 요약 을 조합해 최대 16건·3,500자를 고른다. 시트에서 호출 문장을 넣어 결과를 미리 볼 수 있다.
+
+### 6단계 · AI 연결 시스템
+- AI별 **모델 선택**(Gemini/OpenAI/Anthropic), **개인 업무 지침**, **일일 호출 한도**.
+- **연결 테스트** — 서버가 키·예산을 확인해 `connected` / `not_connected` / `blocked_budget`을 정직하게 돌려준다. 미연결이면 어떤 답변도 만들지 않는다.
+- **키 관리** — 서버 환경변수 또는 `ai_provider_keys`(AES-GCM 암호문, 평문 없음). 브라우저에는 키가 없다. 키 등록은 운영자 전용(`x-admin-token`).
+- **비용 관리** — 프로젝트별 일일·월간 예산, 일일 호출 한도, AI별 한도, 토큰·예상 비용 기록. **초기값은 0원/0회이며 0은 “차단”** — 키가 있어도 0원이면 호출하지 않는다.
+
+### 7단계 · 자동 협업
+- **업무(office_tasks)** — 제목·설명·우선순위(P1~P5)·담당·최대 홉. 상태: 대기/진행중/검수대기/승인완료/반려·재작업/긴급정지, 진행률 0~100%.
+- **담당 자동 배정(규칙 기반)** — 조사·사실→Gemini, 분석·설계→Claude, 기획·검수→ChatGPT, 제작·실행→피클, 키워드 없으면 총괄(ChatGPT).
+- **AI 작업지시 전달 카드** — 업무를 만들면 대화에 전달 카드가 남고, 미연결 AI는 “전달했지만 응답 없음(수동 대기)”으로 정확히 표시된다.
+- **결과물 검수** — 승인 / 반려(재작업 사유 필수) → 재작업 → 재검수. 처리 기록(이벤트)이 남는다.
+- **피클 미처리 업무** — `assigned_to='pickle'` + 대기/반려 업무를 DB 뷰(`office_pickle_tasks`)와 전용 탭으로 모아 본다. 피클 업무는 자동으로 시작되지 않는다.
+- **무한 대화 방지** — 업무별 최대 홉(기본 6), 도달 시 자동 정지. 같은 idempotency key의 재전달은 중복 실행하지 않는다. 수정은 낙관적 락(`lock_version`)으로 충돌을 막는다.
+- **전체 작업 긴급 정지** — 스위치 하나로 모든 프로젝트의 자동 협업·AI 호출이 즉시 멈추고 진행 중 업무가 “긴급정지”가 된다. 재개 가능.
+
+### 8단계 · 외부 기억 이전
+- 텍스트 붙여넣기 / JSON / Markdown / **SKILL.md** 파일을 후보 기억으로 자동 분류하고, **항목별 승인 후에만** 저장한다(자동 연동 아님을 화면에 명시).
+- **악성 지시문(프롬프트 인젝션) 방어** — `ignore previous`, `system:`, `<system_msg>`, 키 출력 요구 등 패턴을 탐지해 경고하고, 외부 문서는 `<external_document>`로 격리해 AI가 지시로 실행하지 않게 한다.
+
+## 아직 안 되는 것 (의도)
+- **AI의 실제 답변** — 서버에 제공자 키를 등록하지 않았고 예산도 0원이라, 모든 AI는 “API 미연결(수동 대기)” 또는 “예산 차단”으로 표시된다. 어떤 경우에도 AI가 답한 것처럼 꾸민 메시지를 만들지 않는다(RLS가 `author_kind='ai'` 클라이언트 생성을 차단).
+- 키를 등록하고 예산 한도를 0보다 크게 올리면 실제 호출이 가능하지만, 이번 범위에서는 **유료 호출을 하지 않았다.**
 
 ## 보안
-- 프런트엔드에는 **공개용 anon 키만** 들어간다. 이 키는 공개되어도 되며, 실제 데이터 접근은 전부 **RLS 정책**이 막는다.
-- `service_role` 키, AI 제공자 API 키, DB 비밀번호는 저장소에 없다. AI 키는 서버 측 함수(Edge Function)의 비밀값으로만 넣도록 설계했다.
-- 테이블: `profiles` · `projects` · `project_members` · `ai_agents` · `messages` · `project_memories` · `api_usage_logs` (모두 RLS 적용, 스키마는 `src/office/schema.sql`, 4단계 변경분은 `supabase/migrations/20261126_04_05_memories_gateway.sql`)
-- 백업 복구는 본인 프로젝트 멤버만 실행할 수 있는 SECURITY DEFINER RPC(`office_restore_backup`)로 처리한다. 복원된 AI 발화는 `metadata.restored=true`로 표시된다.
+- 프런트엔드에는 **공개용 anon 키만** 들어간다. `service_role`·AI 제공자 키·DB 비밀번호는 저장소·브라우저에 없다(빌드 검사로 확인).
+- 테이블: `profiles` · `projects` · `project_members` · `ai_agents` · `messages` · `project_memories` · `api_usage_logs` · `budget_policies` · `office_tasks` · `office_task_events` · `office_control` · `memory_revisions` · `conversation_summaries` · `app_admins` · `office_worker_users` · `office_worker_invites` · `ai_provider_keys`(서버 전용, RLS 정책 없음)
+- 마이그레이션: `src/office/schema.sql` → `supabase/migrations/20261126_04_05_memories_gateway.sql` → `20261126_06_08_agents_tasks_memory.sql` → `20261126_09_single_admin_worker.sql` → `20261126_10_worker_scope.sql` → `20261126_11_revoke_anon_rpc.sql`
+- Edge Function: `supabase/functions/ai-chat` (v3, verify_jwt) — 사용자 JWT 검증 후 멤버십·역할 확인, 키는 서버에만.
 
-## 업데이트
-소스는 코코 작업 공간의 `work/bot-office/`. `npm run build` 후 `dist/`를 이 저장소 루트로 올리면 반영된다.
+## 운영
+- 예상 운영비 **0원/월** (Supabase Free · GitHub Pages · AI 호출 0회). 무료 프로젝트는 1주일 미사용 시 일시정지되므로 주 1회 이상 앱을 열어 두는 편이 좋다.
+- 키 등록(운영자, 터미널에서만):
+  `curl -X POST "<SUPABASE_URL>/functions/v1/ai-chat" -H "apikey: <ANON>" -H "Authorization: Bearer <ANON>" -H "x-admin-token: <ADMIN_TOKEN>" -H "Content-Type: application/json" -d '{"action":"store_key","provider":"gemini","key":"<KEY>"}'`
+  (등록 후에도 예산이 0원이면 호출은 차단된다.)
