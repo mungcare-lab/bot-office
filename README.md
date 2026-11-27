@@ -62,7 +62,7 @@
 ## 보안
 - 프런트엔드에는 **공개용 anon 키만** 들어간다. `service_role`·AI 제공자 키·DB 비밀번호는 저장소·브라우저에 없다(빌드 검사로 확인).
 - 테이블: `profiles` · `projects` · `project_members` · `ai_agents` · `messages` · `project_memories` · `api_usage_logs` · `budget_policies` · `office_tasks` · `office_task_events` · `office_control` · `memory_revisions` · `conversation_summaries` · `app_admins` · `office_worker_users` · `office_worker_invites` · `ai_provider_keys`(서버 전용, RLS 정책 없음)
-- 마이그레이션: `src/office/schema.sql` → `supabase/migrations/20261126_04_05_memories_gateway.sql` → `20261126_06_08_agents_tasks_memory.sql` → `20261126_09_single_admin_worker.sql` → `20261126_10_worker_scope.sql` → `20261126_11_revoke_anon_rpc.sql`
+- 마이그레이션: `src/office/schema.sql` → `supabase/migrations/20261126_04_05_memories_gateway.sql` → `20261126_06_08_agents_tasks_memory.sql` → `20261126_09_single_admin_worker.sql` → `20261126_10_worker_scope.sql` → `20261126_11_revoke_anon_rpc.sql` → `20261127_18_message_bookmarks.sql`
 - Edge Function: `supabase/functions/ai-chat` (v3, verify_jwt) — 사용자 JWT 검증 후 멤버십·역할 확인, 키는 서버에만.
 
 ## 운영
@@ -82,3 +82,15 @@
 - **서비스 워커** — `/bot-office/sw.js` 를 `scope: '/bot-office/'`, `updateViaCache: 'none'` 으로 등록한다. 설치 단계에서 파일 하나가 실패해도 설치가 깨지지 않고, `activate` 에서 이전 캐시를 지우며, 화면은 네트워크 우선·정적 자산은 캐시 우선으로 응답한다. Supabase 등 다른 출처 요청은 가로채지 않는다.
 - **설치 도우미** — 방 목록 아래 `📲 AI OFFICE 앱으로 설치` 버튼. 브라우저가 설치 프롬프트를 주면 바로 띄우고, 없으면 삼성 인터넷·크롬 수동 설치 순서와 “웹 앱을 설치할 수 없음”이 뜰 때의 확인 사항을 안내한다.
 - **자동 로그인** — 세션을 `localStorage`(`aioffice.auth.v1`)에 저장하고 토큰을 자동 갱신한다. 앱 재실행·재부팅 뒤에도 저장된 refresh 토큰으로 복구하며, 일시적 네트워크 오류로는 세션을 지우지 않는다(재시도). 로그아웃·토큰 취소 때만 로그인 화면으로 돌아간다. 비밀번호는 저장하지 않는다.
+
+## 2026-11-27 채팅 개선 (복사 · 마크다운 · 공유 · 북마크 · 모바일)
+- **복사** — 사용자·AI 모든 메시지에 `📋 복사` 버튼(최소 30px 높이). 전체 복사는 마크다운 기호(`#`·`**`·백틱·표 파이프)를 걷어낸 평문이고, `⋯` 메뉴에서 **마크다운 그대로 복사**도 고를 수 있다. 코드·프롬프트 블록은 블록 우측 상단 `[복사]` 버튼으로 개별 복사. 복사 결과는 하단 토스트로 알린다.
+- **길게 누르기(~450ms)** — 드래그·스크롤(10px 이동)과 충돌하지 않게 취소되고, 손가락을 떼는 순간의 클릭이 배경에 닿아 시트가 바로 닫히지 않도록 450ms 가드를 둔다. 메뉴: 복사 · 마크다운 그대로 · 공유 · 북마크 · 부분 텍스트 선택 · 프로젝트 기억으로 저장 · 업무 지시서로 등록 · 다른 방으로 전달.
+- **부분 텍스트 선택** — `select-text` 모드에서만 글자 선택이 켜지고(그 전에는 길게 누르기가 메뉴), 하단 안내 띠의 `선택 복사`로 선택 구간만 복사한다.
+- **안전한 마크다운** — 제목·굵게·기울임·목록·표·코드블록·인용·자동 링크. React 텍스트 노드로만 그려 `<script>`·`onerror=`·`onclick=` 는 글자로만 보이고 실행되지 않는다. 링크는 http/https/mailto/tel 만 허용(`javascript:`·`data:` 차단), 새 창 + `rel="noopener noreferrer"`.
+- **긴 메시지 접기** — 420자 또는 14줄을 넘으면 접고 `[전체 보기 / 접기]` 토글. 표·코드는 말풍선 안에서만 가로 스크롤(`overflow-x:auto`)하고 페이지 전체는 가로로 넘치지 않는다.
+- **북마크(영구 저장)** — `message_bookmarks` 테이블(마이그레이션 `20261127_18_message_bookmarks.sql`, RLS: 본인 행 + 방 멤버만). 헤더 `⭐` 칩에서 패널을 열어 검색·이동·해제.
+- **기억 저장·업무 등록** — 반드시 확인 시트(제목·유형·중요도 / 제목·지시 내용·우선순위·담당)를 거친 뒤 `project_memories`(source_message_id 기록)와 `office_tasks` 에 저장한다. 등록 시 AI 를 자동 호출하지 않는다.
+- **다른 방으로 전달** — 대상 방을 고르고 확인 후 전달. 멘션을 저장하지 않고(`mentions: []`) `metadata.auto_ai=false` 로 남겨, 전달 문구에 `@AI` 가 있어도 자동 호출·과금이 없다.
+- **모바일** — 헤더를 2줄(이름 2줄 허용 + 도구 칩 줄)로 정리해 이름이 잘리지 않는다. 새 시트는 모두 `pushState`/`popstate` 스택에 들어가 **안드로이드 뒤로가기 = 닫기**(기억 시트에서 뒤로가면 작업 메뉴로). 방을 오갈 때 **방별 스크롤 위치를 기억·복원**한다.
+- **검증** — 로컬 `qa/chat-copy-v27.mjs` **50/50 통과**(390×844 모바일, 스크린샷 `qa/chat-v27/`), 라이브 재검증은 같은 스크립트를 `QA_TARGET` 으로 실행. 예산·호출 한도(일 40회·AI별 20회·월 $13)와 기존 대화·기억·업무는 그대로다.
