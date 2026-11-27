@@ -113,10 +113,13 @@ self.addEventListener('push', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const raw = (event.notification.data && event.notification.data.url) || SCOPE;
+  // 서버는 '/?openBlogPost=…' 처럼 앱 안 경로만 보낸다. 그대로 new URL('/?…', scope) 하면
+  // 사이트 루트(https://<user>.github.io/)로 가 버리므로, 반드시 앱 경로(/bot-office/)를 붙인다.
+  const raw = (event.notification.data && event.notification.data.url) || '/';
+  const normalized = raw.startsWith('/') ? SCOPE + raw.slice(1) : raw;
   let target;
   try {
-    target = new URL(raw, self.registration.scope).href;
+    target = new URL(normalized, self.registration.scope).href;
   } catch {
     target = self.registration.scope;
   }
