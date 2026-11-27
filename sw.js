@@ -6,7 +6,7 @@
  *  - Supabase·폰트 등 다른 출처: 절대 가로채지 않는다.
  *  - 새 버전: CACHE 이름을 올리고 activate 에서 이전 캐시를 지운다(구버전 화면 고착 방지).
  */
-const VERSION = 'aioffice-v21-2026-11-27';
+const VERSION = 'aioffice-v22-2026-11-27';
 const SCOPE = '/bot-office/';
 const SHELL = [`${SCOPE}`, `${SCOPE}index.html`, `${SCOPE}manifest.webmanifest`, `${SCOPE}icons/icon-192.png`];
 
