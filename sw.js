@@ -13,7 +13,7 @@
  *    없으면 새 창으로 그 주소를 연다.
  *  - pushsubscriptionchange: 브라우저가 구독을 갱신하면 새 구독으로 다시 등록한다.
  */
-const VERSION = 'aioffice-v41-2026-11-28';
+const VERSION = 'aioffice-v42-2026-11-28';
 const SCOPE = '/bot-office/';
 const SHELL = [`${SCOPE}`, `${SCOPE}index.html`, `${SCOPE}manifest.webmanifest`, `${SCOPE}icons/icon-192.png`];
 /** 공개 값(VAPID). 개인키는 서버 시크릿에만 있다. */
