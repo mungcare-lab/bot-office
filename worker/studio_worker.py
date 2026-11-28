@@ -68,9 +68,13 @@ def rest(path: str, method: str = 'GET', body: dict | None = None, prefer: str |
     req = urllib.request.Request(
         f'{SUPABASE_URL}/rest/v1/{path}', data=data, method=method, headers=_headers(extra)
     )
-    with urllib.request.urlopen(req, timeout=120) as res:
-        raw = res.read().decode()
-        return json.loads(raw) if raw.strip() else None
+    try:
+        with urllib.request.urlopen(req, timeout=120) as res:
+            raw = res.read().decode()
+            return json.loads(raw) if raw.strip() else None
+    except urllib.error.HTTPError as err:
+        body = err.read()[:400].decode('utf-8', 'ignore')
+        raise RuntimeError(f'{method} {path} -> {err.code}: {body}') from err
 
 
 def rpc(name: str, body: dict):
@@ -89,9 +93,13 @@ def upload(path: str, blob: bytes, mime: str) -> str:
             'x-upsert': 'true',
         },
     )
-    with urllib.request.urlopen(req, timeout=300) as res:
-        if res.status >= 300:
-            raise RuntimeError(f'upload failed {res.status}')
+    try:
+        with urllib.request.urlopen(req, timeout=300) as res:
+            if res.status >= 300:
+                raise RuntimeError(f'upload failed {res.status}: {(res.read() or b"")[:300]!r}')
+    except urllib.error.HTTPError as err:
+        body = err.read()[:400].decode('utf-8', 'ignore')
+        raise RuntimeError(f'upload HTTP {err.code}: {body}') from err
     return f'{BUCKET}/{path}'
 
 
@@ -141,11 +149,11 @@ def card_html(item: dict, slide: dict, index: int, total: int) -> str:
   .top {{ display: flex; justify-content: space-between; align-items: center; font-size: 30px; letter-spacing: 2px; color: #ffffff99; }}
   .badge {{ color: {accent}; font-weight: 700; }}
   .index {{ font-variant-numeric: tabular-nums; }}
-  .mid {{ display: flex; flex-direction: column; justify-content: center; flex: 1; padding-right: 8px; }}
+  .mid {{ display: flex; flex-direction: column; justify-content: flex-start; flex: 1; margin-top: 110px; padding-right: 8px; }}
   .num {{ font-size: 34px; font-weight: 800; color: {accent}; letter-spacing: 4px; margin-bottom: 26px; }}
   h1 {{ font-size: 78px; line-height: 1.2; font-weight: 800; letter-spacing: -1.2px; }}
   p {{ margin-top: 34px; font-size: 42px; line-height: 1.55; color: #e6e7ee; font-weight: 400; }}
-  .bottom {{ display: flex; flex-direction: column; gap: 30px; }}
+  .bottom {{ display: flex; flex-direction: column; gap: 26px; margin-top: auto; }}
   .rule {{ width: 132px; height: 9px; background: {accent}; border-radius: 6px; }}
   .foot {{ display: flex; justify-content: space-between; font-size: 27px; color: #ffffff80; }}
   .bar {{ position: absolute; left: 0; bottom: 0; height: 10px; width: {int(100 * (index + 1) / max(total, 1))}%; background: {accent}; }}
@@ -168,17 +176,21 @@ def thumb_html(item: dict) -> str:
     platform = item.get('platform', 'youtube')
     accent = ACCENTS.get(platform, '#ff4d4d')
     plan = item.get('plan') or {}
-    title = esc(item.get('title') or '')
+    raw_title = item.get('title') or ''
+    title = esc(raw_title)
     hook = esc(plan.get('hook') or (item.get('meta') or {}).get('description', '')[:40])
     brand = esc(item.get('brand') or 'AI OFFICE')
+    # 제목 길이에 따라 크기를 줄여 한 줄에 최대한 담는다(단어 하나만 남는 줄 방지).
+    length = len(raw_title)
+    title_size = 92 if length <= 16 else 76 if length <= 22 else 64 if length <= 30 else 54
     return f"""<!doctype html><html lang="ko"><head><meta charset="utf-8">
 <style>
   * {{ box-sizing: border-box; margin: 0; padding: 0; }}
   body {{ width: 1280px; height: 720px; font-family: 'Noto Sans CJK KR', sans-serif; background: #111318; color: #fff; overflow: hidden; }}
-  .wrap {{ position: relative; width: 100%; height: 100%; padding: 70px 76px; display: flex; flex-direction: column; justify-content: center;
-           background: linear-gradient(135deg, {accent}30 0%, transparent 45%), linear-gradient(315deg, #1b1f2a 0%, #0c0e13 100%); }}
+  .wrap {{ position: relative; width: 100%; height: 100%; padding: 64px 76px; display: flex; flex-direction: column; justify-content: center;
+           background: linear-gradient(135deg, {accent}55 0%, transparent 46%), linear-gradient(315deg, #1d2230 0%, #0b0d12 100%); }}
   .kicker {{ font-size: 28px; letter-spacing: 3px; color: {accent}; font-weight: 700; }}
-  h1 {{ margin-top: 26px; font-size: 92px; line-height: 1.14; font-weight: 900; letter-spacing: -1.5px; max-width: 1040px; }}
+  h1 {{ margin-top: 24px; font-size: {title_size}px; line-height: 1.16; font-weight: 900; letter-spacing: -1.5px; max-width: 1080px; word-break: keep-all; }}
   .hook {{ margin-top: 30px; font-size: 36px; color: #d6d9e3; }}
   .brand {{ position: absolute; right: 76px; bottom: 56px; font-size: 26px; color: #ffffff77; }}
   .time {{ position: absolute; right: 76px; bottom: 100px; font-size: 30px; background: #000000aa; color: #fff; padding: 8px 16px; border-radius: 8px; }}
@@ -213,7 +225,7 @@ def slides_of(item: dict) -> list[dict]:
     return [{'heading': item.get('title') or '콘텐츠', 'body': (item.get('meta') or {}).get('description', '') or ''}]
 
 
-def render_png(item: dict, html: str, width: int, height: int, out: str, scale: float = 2.0) -> None:
+def render_png(item: dict, html: str, width: int, height: int, out: str, scale: float = 1.0) -> None:
     spec = {'html': html, 'width': width, 'height': height, 'out': out, 'scale': scale}
     spec_path = out + '.spec.json'
     with open(spec_path, 'w', encoding='utf-8') as f:
@@ -302,12 +314,14 @@ def handle_render_thumb(job: dict, tmp: str) -> dict:
 
 def ffprobe_duration(path: str) -> float:
     candidate = os.path.join(os.path.dirname(FFMPEG), 'ffprobe')
-    probe = candidate if os.path.exists(candidate) else 'ffprobe'
-    proc = subprocess.run(
-        [probe, '-v', 'error', '-show_entries', 'format=duration', '-of', 'default=nw=1:nk=1', path],
-        capture_output=True, text=True, timeout=60,
-    )
+    probe = candidate if os.path.exists(candidate) else shutil.which('ffprobe')
+    if not probe:
+        return 0.0
     try:
+        proc = subprocess.run(
+            [probe, '-v', 'error', '-show_entries', 'format=duration', '-of', 'default=nw=1:nk=1', path],
+            capture_output=True, text=True, timeout=60,
+        )
         return float(proc.stdout.strip())
     except Exception:
         return 0.0
@@ -357,7 +371,7 @@ def handle_encode_video(job: dict, tmp: str) -> dict:
     proc = subprocess.run(cmd, capture_output=True, text=True, timeout=900)
     if proc.returncode != 0:
         raise RuntimeError(f'ffmpeg encode failed: {proc.stderr[-800:]}')
-    duration = ffprobe_duration(out)
+    duration = ffprobe_duration(out) or round(per_slide * len(paths), 3)
     loudness = measure_loudness(out)
     rev = item.get('revision', 1)
     key = f"{item['id']}/r{rev}/video-{uuid.uuid4().hex[:6]}.mp4"
@@ -365,8 +379,8 @@ def handle_encode_video(job: dict, tmp: str) -> dict:
     register(item['id'], job['id'], 'video', key, 'video/mp4', out,
              {'duration_s': duration, 'width': width, 'height': height, 'loudness': loudness, 'revision': rev})
     subs_key = f"{item['id']}/r{rev}/subs-{uuid.uuid4().hex[:6]}.srt"
-    upload(subs_key, open(srt, 'rb').read(), 'application/x-subrip')
-    register(item['id'], job['id'], 'subs', subs_key, 'application/x-subrip', srt, {'revision': rev})
+    upload(subs_key, open(srt, 'rb').read(), 'text/plain')
+    register(item['id'], job['id'], 'subs', subs_key, 'text/plain', srt, {'revision': rev})
     return {'assets': [key, subs_key], 'item_status': 'review', 'duration_s': duration, 'loudness': loudness}
 
 
@@ -401,7 +415,7 @@ def handle_make_subs(job: dict, tmp: str) -> dict:
     rev = item.get('revision', 1)
     key = f"{item['id']}/r{rev}/subs-{uuid.uuid4().hex[:6]}.srt"
     upload(key, open(srt, 'rb').read(), 'application/x-subrip')
-    register(item['id'], job['id'], 'subs', key, 'application/x-subrip', srt, {'revision': rev})
+    register(item['id'], job['id'], 'subs', key, 'text/plain', srt, {'revision': rev})
     return {'assets': [key]}
 
 
