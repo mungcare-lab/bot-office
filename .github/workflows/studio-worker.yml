@@ -1,0 +1,82 @@
+name: studio-worker
+
+# AI OFFICE V5.0 STUDIO 제작 워커 (0원 범위)
+#  - 공개 저장소의 GitHub Actions 무료 실행으로 Chromium 렌더 · FFmpeg 인코딩을 수행한다.
+#  - 비밀정보는 저장소에 커밋하지 않는다. 아래 두 개의 Actions Secret 만 사용한다.
+#      SUPABASE_URL               (예: https://<ref>.supabase.co)
+#      SUPABASE_SERVICE_ROLE_KEY  (서버 전용 키 — 저장소 파일에 절대 쓰지 않는다)
+#  - 시크릿이 없으면 조용히 종료한다(빨간 실패 알림을 만들지 않는다).
+#  - 산출물(렌더 PNG·MP4·SRT)은 Supabase Storage(비공개 studio-assets)로만 올라가고
+#    저장소에는 커밋하지 않는다.
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+    inputs:
+      kinds:
+        description: '처리할 잡 종류(쉼표 구분, 비우면 전체)'
+        required: false
+        default: ''
+      limit:
+        description: '한 번에 처리할 최대 건수'
+        required: false
+        default: '3'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: studio-worker
+  cancel-in-progress: false
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 시크릿 확인
+        id: guard
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY 시크릿이 없어 워커를 실행하지 않습니다. (저장소 Settings → Secrets and variables → Actions 에 등록)"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/setup-node@v4
+        if: steps.guard.outputs.ready == 'true'
+        with:
+          node-version: '22'
+
+      - name: Playwright Chromium 설치
+        if: steps.guard.outputs.ready == 'true'
+        run: |
+          npm install --no-audit --no-fund playwright@1.65.1
+          npx playwright install --with-deps chromium
+
+      - name: FFmpeg 확인
+        if: steps.guard.outputs.ready == 'true'
+        run: ffmpeg -hide_banner -version | head -3
+
+      - name: 워커 실행
+        if: steps.guard.outputs.ready == 'true'
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          WORKER_NAME: actions-${{ github.run_id }}
+          NODE_BIN: node
+          FFMPEG_BIN: ffmpeg
+        run: |
+          ARGS="--once --limit ${{ inputs.limit || '3' }}"
+          if [ -n "${{ inputs.kinds }}" ]; then ARGS="$ARGS --kinds ${{ inputs.kinds }}"; fi
+          python3 worker/studio_worker.py $ARGS
+      - name: 결과 요약
+        if: always() && steps.guard.outputs.ready == 'true'
+        run: echo "워커 실행 종료 · ${{ job.status }}"
